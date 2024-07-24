@@ -1,17 +1,44 @@
 import express from "express"
 import cookieSession from "cookie-session"
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { SSOReadyClient } from "ssoready";
 
 const app = express()
+app.use(express.json())
 app.use(cookieSession({
-  keys: [process.env.COOKIE_SESSION_SECRET],
+  secret: "this is just a demo app",
 }))
 
-app.get("/", (req, res) => {
-  res.send(`You are logged in as ${req.session.email}`)
+app.get("/api/whoami", (req, res) => {
+  res.json({ email: req.session.email })
 })
 
-app.get("/login", (req, res) => {
-`)
+const ssoready = new SSOReadyClient()
+
+app.post("/api/saml/redirect", async (req, res) => {
+  // res.status(500).send()
+  const { redirectUrl } = await ssoready.saml.getSamlRedirectUrl({
+    organizationExternalId: req.body.domain,
+  })
+  res.json({ redirectUrl })
+})
+
+app.post("/api/saml/redeem", async (req, res) => {
+  // res.status(500).send()
+  const { email } = await ssoready.saml.redeemSamlAccessCode({
+    samlAccessCode: req.body.samlAccessCode,
+  })
+  req.session.email = email
+  res.status(200).send()
+})
+
+// poor man's single-page app stuff
+app.use(express.static("public"))
+app.use("*", (req, res) => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  res.sendFile(__dirname + "/public/index.html")
 })
 
 app.listen(3000, "localhost", () => {
