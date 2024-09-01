@@ -4,6 +4,11 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { SSOReadyClient } from "ssoready";
 
+const domainToOrgMap = {
+  "gmail.com": "authentik",
+  "example.com": "authentik"
+};
+
 const app = express()
 app.use(express.json())
 app.use(cookieSession({
@@ -17,12 +22,19 @@ app.get("/api/whoami", (req, res) => {
 const ssoready = new SSOReadyClient()
 
 app.post("/api/saml/redirect", async (req, res) => {
-  // res.status(500).send()
+  const domain = req.body.domain;
+  const organizationExternalId = domainToOrgMap[domain];
+
+  if (!organizationExternalId) {
+    return res.status(400).json({ error: "Domain email not supported through SAML. Add it to domainToOrgMap " });
+  }
+
   const { redirectUrl } = await ssoready.saml.getSamlRedirectUrl({
-    organizationExternalId: req.body.domain,
-  })
-  res.json({ redirectUrl })
-})
+    organizationExternalId
+  });
+
+  res.json({ redirectUrl });
+});
 
 app.post("/api/saml/redeem", async (req, res) => {
   // res.status(500).send()
